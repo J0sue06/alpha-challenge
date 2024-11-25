@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: fastapi-api
+    environment:
+      - DB_URL=mysql+pymysql://external_user:password@db:3306/alpha_database
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy 
+    networks:
+      - mynetwork
+
+  db:
+    image: mysql:8
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: alpha_database
+      MYSQL_USER: external_user
+      MYSQL_PASSWORD: password
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - mynetwork
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: front/Dockerfile
+    container_name: angular-frontend
+    ports:
+      - "4201:4200"
+    depends_on:
+      - api
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+    driver: bridge
